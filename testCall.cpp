@@ -69,7 +69,7 @@ struct Steps {
 Stroke randomStroke(const Canvas& target) {
     float x = frand(0.02f, 0.98f);
     float y = frand(0.02f, 0.98f);
-    float size = frand(0.02f, 0.3f); //tamano pincelada
+    float size = frand(0.02f, 0.3f); //tamano pincelada 0.58
     float rot  = frand(0.0f, 360.0f);
     int type   = irand(0, BRUSH_MAX_TYPE());
     int r, g, b; sampleTargetRGB(target, x, y, r, g, b);
@@ -102,8 +102,8 @@ double evalStrokes(const std::vector<Stroke>& S, const Canvas& target) {
 
 // -------------------- Hill Climbing (Best-Improvement) --------------------
 struct HCParams {
-    int T = 240;          // trazos
-    int iters = 5000;     // iteraciones
+    int T = 340;          // trazos
+    int iters = 10000;     // iteraciones
     int stall_limit = 1500;// corte por estancamiento
     int K = 32;           // vecinos por iteración (best-of-K)
     Steps steps;          // magnitudes del vecindario
@@ -180,7 +180,7 @@ double hillClimbBest(std::vector<Stroke>& Sbest, const Canvas& target, HCParams&
 // -------------------- main --------------------
 int main(int argc, char** argv) {
     // Args: target [T] [iters] [seed] [K]
-    std::string targetPath = (argc >= 2) ? argv[1] : "instancias/starrynight.png";
+    std::string targetPath = (argc >= 2) ? argv[1] : "instancias/bach.png";
 
     HCParams P;
     if (argc >= 3) P.T     = std::max(1, std::atoi(argv[2]));
