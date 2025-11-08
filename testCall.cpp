@@ -1,4 +1,4 @@
-// testCall.cpp — Hill Climbing + Mejor Mejora (Best-Improvement)
+// testCall.cpp — Hill Climbing + Mejor Mejora (Best-Improvement) + LOG a TXT
 #include "stroke.h"
 #include <iostream>
 #include <vector>
@@ -7,6 +7,7 @@
 #include <cmath>
 #include <algorithm>
 #include <chrono>
+#include <fstream>   // <<<<<<<<<<<<<<<<<<<<< NEW
 
 // -------------------- RNG & utils --------------------
 static std::mt19937 rng(std::random_device{}());
@@ -69,7 +70,7 @@ struct Steps {
 Stroke randomStroke(const Canvas& target) {
     float x = frand(0.02f, 0.98f);
     float y = frand(0.02f, 0.98f);
-    float size = frand(0.02f, 0.3f); //tamano pincelada 0.58
+    float size = frand(0.02f, 0.3f); // tamaño pincelada
     float rot  = frand(0.0f, 360.0f);
     int type   = irand(0, BRUSH_MAX_TYPE());
     int r, g, b; sampleTargetRGB(target, x, y, r, g, b);
@@ -103,7 +104,7 @@ double evalStrokes(const std::vector<Stroke>& S, const Canvas& target) {
 // -------------------- Hill Climbing (Best-Improvement) --------------------
 struct HCParams {
     int T = 340;          // trazos
-    int iters = 10000;     // iteraciones
+    int iters = 5000;    // iteraciones
     int stall_limit = 1500;// corte por estancamiento
     int K = 32;           // vecinos por iteración (best-of-K)
     Steps steps;          // magnitudes del vecindario
@@ -123,7 +124,13 @@ void applyCooling(Steps& st, const HCParams& P, int it) {
     st.typeProb  = std::max(0.05f, baseSteps.typeProb * (0.8f + 0.2f * cool));
 }
 
-double hillClimbBest(std::vector<Stroke>& Sbest, const Canvas& target, HCParams& P) {
+// Añadimos logging: pasamos startTime y un ostream opcional
+double hillClimbBest(std::vector<Stroke>& Sbest,
+                     const Canvas& target,
+                     HCParams& P,
+                     const std::chrono::high_resolution_clock::time_point& t0,
+                     std::ostream* log = nullptr,
+                     int log_every = 500) {
     // init steps baseline
     baseSteps = P.steps;
 
@@ -131,6 +138,12 @@ double hillClimbBest(std::vector<Stroke>& Sbest, const Canvas& target, HCParams&
     Sbest.clear(); Sbest.reserve(P.T);
     for (int i = 0; i < P.T; ++i) Sbest.push_back(randomStroke(target));
     double best = evalStrokes(Sbest, target);
+
+    // fila 0 (estado inicial)
+    if (log) {
+        double secs0 = std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count();
+        (*log) << 0 << '\t' << secs0 << '\t' << best << '\n';
+    }
 
     int stall = 0;
     for (int it = 1; it <= P.iters; ++it) {
@@ -165,6 +178,12 @@ double hillClimbBest(std::vector<Stroke>& Sbest, const Canvas& target, HCParams&
             ++stall;
         }
 
+        // LOG: cada mejora y también cada log_every iteraciones
+        if (log && (improved || (it % log_every == 0))) {
+            double secs = std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count();
+            (*log) << it << '\t' << secs << '\t' << best << '\n';
+        }
+
         if (it % 500 == 0 || improved) {
             std::cout << "[it " << it << "] MSE=" << best
                       << (improved ? "  (mejora)\n" : "\n");
@@ -179,7 +198,7 @@ double hillClimbBest(std::vector<Stroke>& Sbest, const Canvas& target, HCParams&
 
 // -------------------- main --------------------
 int main(int argc, char** argv) {
-    // Args: target [T] [iters] [seed] [K]
+    // Args: target [T] [iters] [seed] [K] [logfile]
     std::string targetPath = (argc >= 2) ? argv[1] : "instancias/bach.png";
 
     HCParams P;
@@ -191,6 +210,9 @@ int main(int argc, char** argv) {
         std::cout << "Semilla RNG: " << seed << "\n";
     }
     if (argc >= 6) P.K = std::max(1, std::atoi(argv[5]));
+
+    // archivo de log (opcional)
+    std::string logFile = (argc >= 7) ? argv[6] : "log.txt";
 
     // Ajustes de vecindario (puedes modificarlos aquí)
     P.steps.posStep   = 0.03f;
@@ -223,10 +245,26 @@ int main(int argc, char** argv) {
     std::cout << "Objetivo: " << targetPath << " (" << target.width << "x" << target.height << ")\n";
     std::cout << "T=" << P.T << "  iters=" << P.iters << "  K=" << P.K << "\n";
 
-    // 3) Hill Climbing (Best-Improvement)
+    // 3) Hill Climbing (Best-Improvement) con LOG
     auto t0 = std::chrono::high_resolution_clock::now();
+
+    // abrir log en append y escribir cabecera
+    std::ofstream log(logFile, std::ios::app);
+    if (!log) {
+        std::cerr << "No se pudo abrir " << logFile << " para escribir.\n";
+        return 1;
+    }
+    log << "# target=" << targetPath
+        << " T=" << P.T
+        << " iters=" << P.iters
+        << " K=" << P.K
+        << " seed=" << (argc >= 5 ? argv[4] : "auto")
+        << "\n";
+    log << "iter\tsegundos\tMSE\n";
+
     std::vector<Stroke> bestS;
-    double best = hillClimbBest(bestS, target, P);
+    double best = hillClimbBest(bestS, target, P, t0, &log, /*log_every=*/500);
+
     auto t1 = std::chrono::high_resolution_clock::now();
     double secs = std::chrono::duration<double>(t1 - t0).count();
 
@@ -238,8 +276,13 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    // log final
+    log << "# FIN\t" << secs << "\t" << best << "\n\n";
+    log.close();
+
     std::cout << "✅ MSE final: " << best << "\n";
     std::cout << "🖼️ Guardado: output.png\n";
-    std::cout << "⏱️ Tiempo: " << secs << " s\n";
+    std::cout << "📝 Log guardado en: " << logFile << "\n";
+    std::cout << "⏱️ Tiempo total: " << secs << " s\n";
     return 0;
 }

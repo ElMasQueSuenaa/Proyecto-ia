@@ -1,50 +1,72 @@
 # ===========================
-# Makefile - Pintando con Algoritmos
+# Makefile - HC con logs automáticos (robusto)
 # ===========================
 
-# Compilador y flags
+SHELL := /bin/bash
+.ONESHELL:
+
 CXX := g++
 CXXFLAGS := -std=c++17 -O2 -Wall
 
-# Archivos fuente (puedes agregar más .cpp si creas otros módulos)
 SRCS := stroke.cpp testCall.cpp
 OBJS := $(SRCS:.cpp=.o)
-
-# Nombre del ejecutable
 TARGET := paint
 
-# ===========================
-# Reglas
-# ===========================
+LOGDIR := logs/340TR+5000IT
+OUTDIR := outputs
 
-# Regla por defecto (compila el ejecutable)
+# Crear carpetas si no existen
+$(shell mkdir -p $(LOGDIR))
+$(shell mkdir -p $(OUTDIR))
+
 all: $(TARGET)
 
-# Cómo enlazar los objetos en el ejecutable final
 $(TARGET): $(OBJS)
 	@echo "🔧 Enlazando $(TARGET)..."
 	$(CXX) $(CXXFLAGS) -o $@ $^
 
-# Cómo compilar cada archivo fuente individualmente
 %.o: %.cpp stroke.h
 	@echo "🧩 Compilando $<..."
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-# Ejecutar el programa (compila si es necesario)
+# RUN_OPTS: target [T] [iters] [seed] [K]
+# - Sin target: no se pasan args → el main usa su default y escribe log.txt; lo renombramos.
+# - Con target: se pasan todos los args y el logfile como 6º argumento.
 run: $(TARGET)
 	@echo "🚀 Ejecutando el programa..."
-	./$(TARGET)
+	# parse RUN_OPTS con defaults
+	if [[ -n "$(RUN_OPTS)" ]]; then
+		set -- $(RUN_OPTS)
+	else
+		set --
+	fi
+	target="${1:-}"
+	T="${2:-340}"
+	iters="${3:-10000}"
+	seed="${4:-12345}"
+	K="${5:-32}"
 
-# Limpieza de archivos compilados
+	if [[ -n "$$target" ]]; then
+		base="$$(basename "$$target")"; base="$${base%.*}"
+		timestamp="$$(date +%Y-%m-%d_%H-%M-%S)"
+		logfile="$(LOGDIR)/$${base}_$${timestamp}.txt"
+		echo "📝 Guardando log en $$logfile"
+		./$(TARGET) "$$target" "$$T" "$$iters" "$$seed" "$$K" "$$logfile"
+	else
+		# sin argumentos → el main usa targetPath por defecto y logFile="log.txt"
+		./$(TARGET)
+		base="default"
+		timestamp="$$(date +%Y-%m-%d_%H-%M-%S)"
+		if [[ -f "log.txt" ]]; then
+			mv "log.txt" "$(LOGDIR)/$${base}_$${timestamp}.txt"
+			echo "📝 Log movido a $(LOGDIR)/$${base}_$${timestamp}.txt"
+		fi
+	fi
+
 clean:
-	@echo "🧹 Limpiando archivos objeto..."
+	@echo "🧹 Limpiando objetos..."
 	rm -f $(OBJS)
 
-# Limpieza total (binarios + PNG generados)
 deepclean: clean
 	@echo "🧼 Limpieza profunda..."
-	rm -f $(TARGET) *.png
-
-# ===========================
-# Fin del Makefile
-# ===========================
+	rm -f $(TARGET) $(OUTDIR)/*.png $(LOGDIR)/*.txt
