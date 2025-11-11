@@ -12,7 +12,7 @@ SRCS := stroke.cpp testCall.cpp
 OBJS := $(SRCS:.cpp=.o)
 TARGET := paint
 
-LOGDIR := logs/340TR+5000IT
+LOGDIR := logs
 OUTDIR := outputs
 
 # Crear carpetas si no existen
