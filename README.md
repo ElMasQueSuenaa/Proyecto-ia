@@ -6,7 +6,7 @@ Para compilar este archivo se necesita:
 
 Para elegir la imagen objetivo en el archivo testCall.cpp en la linea 240 se debe cambiar el argumento entre comillas y escribir el nombre de la imagen.
 
-Adentro de la carpeta "Proyecto-IA" se debe abrir una terminal de linux o una terminal y escribir el comando:
+Adentro de la carpeta "Proyecto-IA" se debe abrir una terminal de linux o una terminal y escribir el comando:\\
     - "make"
 Para ejecutar el programa:
     - "make run"
