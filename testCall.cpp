@@ -221,6 +221,41 @@ static Steps baseSteps; // para cooling
  * @return El valor de error (double, MSE) correspondiente a la mejor solución encontrada.
  *
  */
+
+ void applyCooling(Steps& st, const HCParams& P, int it) {
+    if (!P.cool_steps) return;
+    float progress = float(it) / std::max(1, P.iters); // 0..1
+    float cool = 1.0f - 0.7f * progress;              // hasta 30% del valor inicial
+    st.posStep   = baseSteps.posStep   * cool;
+    st.sizeStep  = baseSteps.sizeStep  * cool;
+    st.rotStep   = std::max(4, int(std::round(baseSteps.rotStep * cool)));
+    st.colorStep = std::max(6, int(std::round(baseSteps.colorStep * cool)));
+    st.typeProb  = std::max(0.05f, baseSteps.typeProb * (0.8f + 0.2f * cool));
+}
+
+/**
+ * hillClimbBest
+ *
+ * Realiza una búsqueda local tipo hill-climbing para optimizar un conjunto de trazos 
+ * que aproximen un lienzo objetivo. 
+ * Se itera sobre los trazos, generando hasta P.K perturbaciones por trazo en cada iteración, 
+ * evaluando la calidad mediante evalStrokes y aplicando una política de "cooling" sobre el tamaño de las perturbaciones.
+ *
+ * Parámetros:
+ * @param Sbest     Referencia a un vector de Stroke que contendrá la mejor solución encontrada.
+ *                  Debe ser válido y se limpia/rellena por la función.
+ * @param target    Canvas objetivo contra el que se evalúan las soluciones.
+ * @param P         Parámetros de control (HCParams), contiene al menos: T, K, iters, steps,
+ *                  stall_limit y otros necesarios para las funciones auxiliares.
+ * @param t0        Punto temporal de referencia para cómputo de tiempos transcurridos usado en logs.
+ * @param log       Puntero opcional a std::ostream para registrar (iteración, segundos, error).
+ *                  Si es nullptr, no se escriben entradas de log en ese flujo.
+ * @param log_every Frecuencia (en iteraciones) mínima para escribir en log aun cuando no haya
+ *                  mejoras (se combina con la escritura también cuando hay mejora).
+ *
+ * @return El valor de error (double, MSE) correspondiente a la mejor solución encontrada.
+ *
+ */
 double hillClimbBest(std::vector<Stroke>& Sbest,
                      const Canvas& target,
                      HCParams& P,
