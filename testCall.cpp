@@ -147,26 +147,76 @@ struct Steps {
     float typeProb  = 0.10f;
 };
 
+Stroke randomStroke(const Canvas& target) {
+    float x = frand(0.02f, 0.98f);
+    float y = frand(0.02f, 0.98f);
+    float size = frand(0.02f, 0.3f); // tamaño pincelada
+    float rot  = frand(0.0f, 360.0f);
+    int type   = irand(0, BRUSH_MAX_TYPE());
+    int r, g, b; sampleTargetRGB(target, x, y, r, g, b);
+    return Stroke(x, y, size, rot, type, r, g, b);
+}
 
 /**
- * hillClimbBest
+ * Genera y devuelve una copia perturbada aleatoriamente de un Stroke.
  *
- * Realiza una búsqueda local tipo hill-climbing para optimizar un conjunto de trazos 
- * que aproximen un lienzo objetivo. 
- * Se itera sobre los trazos, generando hasta P.K perturbaciones por trazo en cada iteración, 
- * evaluando la calidad mediante evalStrokes y aplicando una política de "cooling" sobre el tamaño de las perturbaciones.
+ * Se crea una copia local del Stroke de entrada y se aplica una única pequeña
+ * modificación aleatoria a uno de sus atributos: posición relativa (x_rel, y_rel),
+ * tamaño relativo (size_rel), rotación en grados (rotation_deg) o uno de los
+ * canales de color (r, g, b). Además, con una probabilidad configurable se
+ * puede cambiar el tipo del pincel.
+ *
+ * @param s  Stroke original que se desea perturbar (entrada, sin modificar).
+ * @param st Estructura que contiene magnitudes de paso y probabilidades para
+ *           las perturbaciones (posStep, sizeStep, rotStep, colorStep, typeProb).
+ * @return   Nueva instancia de Stroke resultante de aplicar una perturbación.
+ */
+Stroke perturb(const Stroke& s, const Steps& st) {
+    Stroke t = s;
+    switch (irand(0, 6)) { // 0:x 1:y 2:size 3:rot 4:r 5:g 6:b
+        case 0: t.x_rel = clamp(t.x_rel + frand(-st.posStep,  st.posStep),  0.0f, 1.0f); break;
+        case 1: t.y_rel = clamp(t.y_rel + frand(-st.posStep,  st.posStep),  0.0f, 1.0f); break;
+        case 2: t.size_rel = clamp(t.size_rel + frand(-st.sizeStep, st.sizeStep), 0.02f, 1.50f); break;
+        case 3: t.rotation_deg = float(wrapRotation(int(std::round(t.rotation_deg)) + (irand(0,1)? st.rotStep : -st.rotStep))); break;
+        case 4: t.r = clamp(t.r + (irand(0,1)? st.colorStep : -st.colorStep), 0, 255); break;
+        case 5: t.g = clamp(t.g + (irand(0,1)? st.colorStep : -st.colorStep), 0, 255); break;
+        case 6: t.b = clamp(t.b + (irand(0,1)? st.colorStep : -st.colorStep), 0, 255); break;
+    }
+    //Con una probabilidad del 10% se cambia el pincel 
+    if (frand(0.f, 1.f) < st.typeProb && BRUSH_MAX_TYPE() > 0) {
+        t.type = irand(0, BRUSH_MAX_TYPE());
+    }
+    return t;
+}
+
+// Evalúa un conjunto completo (seguro y simple)
+double evalStrokes(const std::vector<Stroke>& S, const Canvas& target) {
+    Canvas tmp(target.width, target.height);
+    render(S, tmp);
+    return mse(tmp, target);
+}
+
+// -------------------- Hill Climbing (Best-Improvement) --------------------
+struct HCParams {
+    int T = 340;          // trazos
+    int iters = 5000;    // iteraciones
+    int stall_limit = 1500;// corte por estancamiento
+    int K = 32;           // vecinos por iteración (best-of-K)
+    Steps steps;          // magnitudes del vecindario
+    bool cool_steps = true;// enfriamiento de pasos
+};
+
+static Steps baseSteps; // para cooling
+
+/**
+ * Aplica un esquema de "cooling" (reducción progresiva) sobre los pasos y
+ * probabilidades contenidos en `st`, en función del número de iteración actual.
+ *
  *
  * Parámetros:
- * @param Sbest     Referencia a un vector de Stroke que contendrá la mejor solución encontrada.
- *                  Debe ser válido y se limpia/rellena por la función.
- * @param target    Canvas objetivo contra el que se evalúan las soluciones.
- * @param P         Parámetros de control (HCParams), contiene al menos: T, K, iters, steps,
- *                  stall_limit y otros necesarios para las funciones auxiliares.
- * @param t0        Punto temporal de referencia para cómputo de tiempos transcurridos usado en logs.
- * @param log       Puntero opcional a std::ostream para registrar (iteración, segundos, error).
- *                  Si es nullptr, no se escriben entradas de log en ese flujo.
- * @param log_every Frecuencia (en iteraciones) mínima para escribir en log aun cuando no haya
- *                  mejoras (se combina con la escritura también cuando hay mejora).
+ * @param st  Referencia a la estructura Steps que será modificada.
+ * @param P   Parámetros de control (debe contener al menos `cool_steps` y `iters`).
+ * @param it  Índice/contador de la iteración actual (entero).
  *
  * @return El valor de error (double, MSE) correspondiente a la mejor solución encontrada.
  *
