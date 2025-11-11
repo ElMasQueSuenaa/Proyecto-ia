@@ -11,6 +11,7 @@ Adentro de la carpeta "Proyecto-IA" se debe abrir una terminal de linux o una te
     - "make"
 
 Para ejecutar el programa:
+
     - "make run"
 
 Para limpiar los archivos que se crearon:
