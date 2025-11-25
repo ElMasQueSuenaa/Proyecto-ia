@@ -1,0 +1,15 @@
+promedios MSE BACH: 140,914
+promedios MSE MONA LISA: 114,916
+promedios MSE MONDRIAAN: 123,196
+promedios MSE NOCHE ESTRELLADA: 246,232
+promedios MSE DALI: 273,425
+promedios MSE KLIMT: 422,302
+promedios MSE POLLOCK: 1502,473 
+
+promedios SEG BACH: 497
+promedios SEG MONA LISA: 338,336
+promedios SEG MONDRIAAN: 376,667
+promedios SEG NOCHE ESTRELLADA: 337
+promedios SEG DALI: 307,334
+promedios SEG KLIMT: 308,334
+promedios SEG POLLOCK: 235

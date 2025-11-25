@@ -198,7 +198,7 @@ double evalStrokes(const std::vector<Stroke>& S, const Canvas& target) {
 
 // -------------------- Hill Climbing (Best-Improvement) --------------------
 struct HCParams {
-    int T = 340;          // trazos
+    int T = 240;          // trazos
     int iters = 5000;    // iteraciones
     int stall_limit = 1500;// corte por estancamiento
     int K = 32;           // vecinos por iteración (best-of-K)
